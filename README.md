@@ -7,7 +7,7 @@
 # 组件安装
 
 ```shell
-pip install -U django-service-kombu
+pip install -U flask-service-kombu
 ```
 
 # 入门案例
@@ -16,34 +16,10 @@ pip install -U django-service-kombu
 ├── manage.py
 └── project
     ├── __init__.py
-    ├── asgi.py
-    ├── urls.py
-    ├── wsgi.py
-    └── settings.py
+    └── service.py
 ```
 
-> settings.py
-
-```python
-INSTALLED_APPS = [
-    # 主要用于配置检查,可不配置
-    'flask_service_kombu',
-]
-
-KOMBU = {
-    'connect_options': {
-        'hostname': 'pyamqp://admin:nimda@127.0.0.1:5672//'
-    },
-    'consume_options': {
-        
-    },
-    'publish_options': {
-        
-    }
-}
-```
-
-> urls.py
+> service.py
 
 ```python
 #! -*- coding: utf-8 -*-
@@ -52,50 +28,56 @@ KOMBU = {
 
 from __future__ import annotations
 
-import json
-
+from flask import Flask
+from flask import jsonify
 from kombu import Exchange
-from django.urls import path
-from django.http.request import HttpRequest
-from django.http.response import HttpResponse
-from flask_service_kombu.proxy import get_amqp_pub_proxy
-from flask_service_kombu.proxy import get_amqp_rpc_proxy
+from flask import Response
+from flask_service_kombu import ServiceKombu
+from service_kombu.constants import KOMBU_CONFIG_KEY
+
+app = Flask(__name__)
+app.config.from_mapping({
+    KOMBU_CONFIG_KEY: {
+        'connect_options': {
+            'hostname': 'pyamqp://admin:nimda@10.242.154.205:5672//'
+        },
+        'consume_options': {
+
+        },
+        'publish_options': {
+
+        }
+    }
+})
+service_kombu = ServiceKombu(app)
 
 
-def test_amqp_pub(request: HttpRequest) -> HttpResponse:
-    """ 测试AMQP PUB请求
+@app.route('/test-amqp-rpc/')
+def test_amqp_rpc() -> Response:
+    """ 测试AMQP RPC请求 """
+    print(service_kombu.app)
+    with service_kombu.get_amqp_rpc_proxy() as rpc:
+        body, message = rpc.send_request('demo.test_amqp_rpc', {}).result
+    return jsonify(body)
 
-    @param request: 请求对象
-    @return: HttpResponse
-    """
-    with get_amqp_pub_proxy() as pub:
+
+@app.route('/test-amqp-pub/')
+def test_amqp_pub() -> Response:
+    """ 测试AMQP PUB请求 """
+    with service_kombu.get_amqp_pub_proxy() as pub:
         publish_options = {'exchange': Exchange('demo'),
                            'routing_key': 'demo.test_amqp_rpc'}
-        pub.publish('from django test_amqp_pub', **publish_options)
-    return HttpResponse('succ')
+        pub.publish('from flask test_amqp_pub', **publish_options)
+    return Response('succ')
 
 
-def test_amqp_rpc(request: HttpRequest) -> HttpResponse:
-    """ 测试AMQP RPC请求
-
-    @param request: 请求对象
-    @return: HttpResponse
-    """
-    with get_amqp_rpc_proxy() as rpc:
-        body, message = rpc.send_request('demo.test_amqp_rpc', {}).result
-    data = json.dumps(body)
-    return HttpResponse(data)
-
-
-urlpatterns = [
-    path('test-amqp-pub/', test_amqp_pub, name='test-amqp-pub'),
-    path('test-amqp-rpc/', test_amqp_rpc, name='test-amqp-rpc'),
-]
+if __name__ == '__main__':
+    app.run(host='127.0.0.1', port=8000, debug=True)
 ```
 
 # 运行服务
 
-> python3 manage.py runserver -v 3 --traceback --force-color
+> python3 service.py
 
 # 接口测试
 
