@@ -7,13 +7,17 @@ from __future__ import annotations
 import typing as t
 
 from flask import Flask
+from service_kombu.core.publish import Publisher
 from service_kombu.constants import KOMBU_CONFIG_KEY
+from service_kombu.core.standalone.amqp.rpc import AMQPRpcRequest
 from service_kombu.core.standalone.amqp.pub import AMQPPubStandaloneProxy
 from service_kombu.core.standalone.amqp.rpc import AMQPRpcStandaloneProxy
 
 
 class ServiceKombu(object):
     """ ServiceKombu插件配置 """
+
+    amqp = {'pub': None, 'rpc': None}
 
     def __init__(self, app: t.Optional[Flask] = None) -> None:
         """ 初始化实例
@@ -31,12 +35,21 @@ class ServiceKombu(object):
         """
         app.config.setdefault(KOMBU_CONFIG_KEY, {})
 
-    def get_amqp_rpc_proxy(self) -> AMQPRpcStandaloneProxy:
-        """ 获取AMQP RPC请求代理 """
+    @property
+    def amqp_pub(self) -> Publisher:
+        """ 获取AMQP PUB代理 """
         config = self.app.config.get(KOMBU_CONFIG_KEY, {})
-        return AMQPRpcStandaloneProxy(config=config)
+        if self.amqp['pub'] is None:
+            proxy = AMQPPubStandaloneProxy(config=config)
+            self.amqp['pub'] = proxy.as_inst()  # type: ignore
+        return self.amqp['pub']  # type: ignore
 
-    def get_amqp_pub_proxy(self) -> AMQPPubStandaloneProxy:
-        """ 获取AMQP PUB请求代理 """
+    @property
+    def amqp_rpc(self) -> AMQPRpcRequest:
+        """ 获取AMQP RPC代理 """
         config = self.app.config.get(KOMBU_CONFIG_KEY, {})
-        return AMQPPubStandaloneProxy(config=config)
+        if self.amqp['rpc'] is None:
+            proxy = AMQPRpcStandaloneProxy(config=config,
+                                           drain_events_timeout=None)
+            self.amqp['rpc'] = proxy.as_inst()  # type: ignore
+        return self.amqp['rpc']  # type: ignore

@@ -13,7 +13,6 @@ pip install -U flask-service-kombu
 # 入门案例
 
 ```yaml
-├── manage.py
 └── project
     ├── __init__.py
     └── service.py
@@ -55,20 +54,16 @@ service_kombu = ServiceKombu(app)
 @app.route('/test-amqp-rpc/')
 def test_amqp_rpc() -> Response:
     """ 测试AMQP RPC请求 """
-    print(service_kombu.app)
-    with service_kombu.get_amqp_rpc_proxy() as rpc:
-        body, message = rpc.send_request('demo.test_amqp_rpc', {}).result
+    body, message = service_kombu.amqp_rpc.send_request('demo.test_amqp_rpc', {}).result
     return jsonify(body)
 
 
 @app.route('/test-amqp-pub/')
 def test_amqp_pub() -> Response:
     """ 测试AMQP PUB请求 """
-    with service_kombu.get_amqp_pub_proxy() as pub:
-        publish_options = {'exchange': Exchange('demo'),
-                           'routing_key': 'demo.test_amqp_rpc'}
-        pub.publish('from flask test_amqp_pub', **publish_options)
-    return Response('succ')
+    publish_options = {'exchange': Exchange('demo'), 'routing_key': 'demo.test_amqp_rpc'}
+    service_kombu.amqp_pub.publish('from flask test_amqp_pub', **publish_options)
+    return Response('publish succ')
 
 
 if __name__ == '__main__':
@@ -79,6 +74,10 @@ if __name__ == '__main__':
 
 > python3 service.py
 
+# 优化建议
+
+> uwsgi驱动时请设置`lazy-apps = true`和`enable-threads = true`
+
 # 接口测试
 
 ```bash
@@ -86,4 +85,3 @@ curl http://127.0.0.1:8000/test-amqp-pub/
 
 curl http://127.0.0.1:8000/test-amqp-rpc/
 ```
-
