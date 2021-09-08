@@ -38,7 +38,7 @@ app = Flask(__name__)
 app.config.from_mapping({
     KOMBU_CONFIG_KEY: {
         'connect_options': {
-            'hostname': 'pyamqp://admin:nimda@10.242.154.205:5672//'
+            'hostname': 'pyamqp://admin:nimda@127.0.0.1:5672//'
         },
         'consume_options': {
 
